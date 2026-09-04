@@ -303,6 +303,7 @@ class Run {
         ];
 
         $pull = [
+            'compare' => __('Checking which files differ', 'github-sync'),
             'stage'  => __('Downloading files', 'github-sync'),
             'backup' => __('Backing up current files', 'github-sync'),
             'apply'  => __('Writing files', 'github-sync'),

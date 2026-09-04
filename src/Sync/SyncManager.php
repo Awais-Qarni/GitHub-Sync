@@ -114,6 +114,18 @@ class SyncManager {
             );
         }
 
+        // The dashboard can cancel while this step is still working. Saving now
+        // would put the run back to "running", so the cancellation is honoured
+        // instead of being overwritten.
+        $current = Run::find($run->id);
+
+        if ($current && !$current->is_running() && $run->is_running()) {
+            self::unlock($mapping->id);
+            Workspace::remove_run($run->id);
+
+            return $current;
+        }
+
         $run->touch();
         $run->save();
 

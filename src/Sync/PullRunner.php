@@ -435,6 +435,14 @@ class PullRunner extends AbstractRunner {
 
                 $existed = is_file($target);
 
+                if ($this->already_installed($source, $target, (string) $item['sha'])) {
+                    // The batch was interrupted after this file was written but
+                    // before the cursor moved, so there is nothing left to do.
+                    $written[(string) $item['path']] = (string) $item['sha'];
+                    $updated++;
+                    continue;
+                }
+
                 if (!$this->install_file($source, $target)) {
                     $this->rollback_and_fail(
                         $dest_path,
@@ -593,6 +601,18 @@ class PullRunner extends AbstractRunner {
         }
 
         $this->fail($error);
+    }
+
+    /**
+     * True when a staged file is gone because it has already been moved into
+     * place, which is what a step killed mid batch leaves behind.
+     */
+    private function already_installed(string $source, string $target, string $sha): bool {
+        if (is_file($source) || !is_file($target)) {
+            return false;
+        }
+
+        return FileHasher::hash_file($target) === $sha;
     }
 
     /**

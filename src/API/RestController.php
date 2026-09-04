@@ -71,18 +71,6 @@ class RestController {
             'permission_callback' => $permission,
         ]);
 
-        register_rest_route(self::REST_NAMESPACE, '/runs', [
-            'methods'             => 'GET',
-            'callback'            => [$this, 'get_runs'],
-            'permission_callback' => $permission,
-        ]);
-
-        register_rest_route(self::REST_NAMESPACE, '/runs/(?P<id>\d+)', [
-            'methods'             => 'GET',
-            'callback'            => [$this, 'get_run'],
-            'permission_callback' => $permission,
-        ]);
-
         register_rest_route(self::REST_NAMESPACE, '/runs/(?P<id>\d+)/step', [
             'methods'             => 'POST',
             'callback'            => [$this, 'step_run'],
@@ -93,19 +81,6 @@ class RestController {
             'methods'             => 'POST',
             'callback'            => [$this, 'cancel_run'],
             'permission_callback' => $permission,
-        ]);
-
-        register_rest_route(self::REST_NAMESPACE, '/logs', [
-            [
-                'methods'             => 'GET',
-                'callback'            => [$this, 'get_logs'],
-                'permission_callback' => $permission,
-            ],
-            [
-                'methods'             => 'DELETE',
-                'callback'            => [$this, 'clear_logs'],
-                'permission_callback' => $permission,
-            ],
         ]);
 
         register_rest_route(self::REST_NAMESPACE, '/connection', [
@@ -361,21 +336,6 @@ class RestController {
     }
 
     /**
-     * Current state of a run.
-     *
-     * @return WP_REST_Response|WP_Error
-     */
-    public function get_run(WP_REST_Request $request) {
-        $run = Run::find((int) $request->get_param('id'));
-
-        if (!$run) {
-            return $this->not_found();
-        }
-
-        return new WP_REST_Response($run->to_array(), 200);
-    }
-
-    /**
      * Stop a run.
      *
      * @return WP_REST_Response|WP_Error
@@ -388,55 +348,6 @@ class RestController {
         }
 
         return new WP_REST_Response(SyncManager::cancel($run)->to_array(), 200);
-    }
-
-    /**
-     * Recent sync history.
-     */
-    public function get_runs(WP_REST_Request $request): WP_REST_Response {
-        $mapping_id = (int) $request->get_param('mapping_id');
-        $limit = (int) ($request->get_param('limit') ?: 10);
-
-        $runs = array_map(
-            static function (Run $run): array {
-                return $run->to_array();
-            },
-            Run::recent($mapping_id, $limit)
-        );
-
-        return new WP_REST_Response($runs, 200);
-    }
-
-    /**
-     * Log entries for the Logs screen.
-     */
-    public function get_logs(WP_REST_Request $request): WP_REST_Response {
-        $result = Log::query([
-            'level'      => sanitize_text_field((string) $request->get_param('level')),
-            'mapping_id' => (int) $request->get_param('mapping_id'),
-            'run_id'     => (int) $request->get_param('run_id'),
-            'search'     => sanitize_text_field((string) $request->get_param('search')),
-            'page'       => (int) ($request->get_param('page') ?: 1),
-            'per_page'   => (int) ($request->get_param('per_page') ?: 25),
-        ]);
-
-        $result['items'] = array_map(
-            static function (Log $log): array {
-                return $log->to_array();
-            },
-            $result['items']
-        );
-
-        return new WP_REST_Response($result, 200);
-    }
-
-    /**
-     * Empty the log.
-     */
-    public function clear_logs(WP_REST_Request $request): WP_REST_Response {
-        $deleted = Log::clear((int) $request->get_param('mapping_id'));
-
-        return new WP_REST_Response(['deleted' => $deleted], 200);
     }
 
     /**

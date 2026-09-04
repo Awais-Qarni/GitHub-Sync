@@ -18,7 +18,7 @@ defined('ABSPATH') || exit;
         </div>
 
         <?php if ($is_connected) : ?>
-            <a href="<?php echo esc_url(admin_url('admin.php?page=github-sync-wizard')); ?>" class="button button-primary button-hero github-sync-add">
+            <a href="<?php echo esc_url(admin_url('admin.php?page=github-sync-wizard')); ?>" class="button button-primary github-sync-add">
                 <span class="dashicons dashicons-plus-alt2" aria-hidden="true"></span>
                 <?php esc_html_e('Add Mapping', 'github-sync'); ?>
             </a>

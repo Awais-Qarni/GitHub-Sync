@@ -51,6 +51,7 @@ final class Plugin {
             // the activation hook never ran again.
             Migrations::maybe_upgrade();
             self::add_capabilities();
+            self::schedule_cleanup();
 
             (new Dashboard())->init();
         }
@@ -76,7 +77,16 @@ final class Plugin {
         Migrations::run();
         self::add_capabilities();
         Workspace::protect(Workspace::base_dir());
+        self::schedule_cleanup();
+    }
 
+    /**
+     * Make sure housekeeping is booked in.
+     *
+     * Called on activation and again from the admin, because a plugin updated
+     * in place never runs its activation hook.
+     */
+    private static function schedule_cleanup(): void {
         if (!wp_next_scheduled(self::CLEANUP_HOOK)) {
             wp_schedule_event(time() + HOUR_IN_SECONDS, 'daily', self::CLEANUP_HOOK);
         }
