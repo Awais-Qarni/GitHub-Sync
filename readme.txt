@@ -1,5 +1,5 @@
 === GitHub Sync ===
-Contributors: company
+Contributors: Muhammad Awais
 Tags: github, sync, deploy, git, version control
 Requires at least: 6.0
 Tested up to: 6.6
