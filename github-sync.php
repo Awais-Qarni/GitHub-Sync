@@ -2,7 +2,7 @@
 /**
  * Plugin Name:       GitHub Sync
  * Plugin URI:        https://github.com/Awais-Qarni/GitHub-Sync
- * Description:       Manual two-way syncing between a GitHub repository folder and a WordPress folder. Pull and push on demand, with backups, logs and your own commit messages.
+ * Description:       Manual two-way syncing between a GitHub repository folder and a WordPress folder. Pull and push on demand, with an activity log, your own commit messages, and a safety copy of every file a pull replaces.
  * Version:           2.0.0
  * Requires at least: 6.0
  * Requires PHP:      8.1

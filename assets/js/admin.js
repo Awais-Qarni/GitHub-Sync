@@ -1010,9 +1010,39 @@
         }
     }
 
+    /* ------------------------------------------------------------------- logs */
+
+    function initLogs() {
+        var when = document.getElementById('github-sync-when');
+        var range = document.querySelector('.github-sync-date-range');
+
+        if (!when || !range) {
+            return;
+        }
+
+        function syncRange() {
+            range.hidden = when.value !== 'custom';
+        }
+
+        when.addEventListener('change', function () {
+            syncRange();
+
+            if (when.value === 'custom') {
+                var from = document.getElementById('github-sync-from');
+
+                if (from) {
+                    from.focus();
+                }
+            }
+        });
+
+        syncRange();
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
         initDashboard();
         initWizard();
         initSettings();
+        initLogs();
     });
 }());

@@ -15,6 +15,14 @@ $level_labels = [
     'warning' => __('Warning', 'github-sync'),
     'error'   => __('Error', 'github-sync'),
 ];
+
+$when_labels = [
+    ''       => __('Any time', 'github-sync'),
+    '24h'    => __('Last 24 hours', 'github-sync'),
+    '7d'     => __('Last 7 days', 'github-sync'),
+    '30d'    => __('Last 30 days', 'github-sync'),
+    'custom' => __('Custom range', 'github-sync'),
+];
 ?>
 <div class="wrap github-sync">
     <div class="github-sync-page-head">
@@ -58,11 +66,45 @@ $level_labels = [
             <?php endforeach; ?>
         </select>
 
+        <label class="screen-reader-text" for="github-sync-when"><?php esc_html_e('When', 'github-sync'); ?></label>
+        <select name="when" id="github-sync-when">
+            <?php foreach ($when_labels as $value => $label) : ?>
+                <option value="<?php echo esc_attr($value); ?>" <?php selected($filters['when'], $value); ?>>
+                    <?php echo esc_html($label); ?>
+                </option>
+            <?php endforeach; ?>
+        </select>
+
+        <span class="github-sync-date-range" <?php echo $filters['when'] === 'custom' ? '' : 'hidden'; ?>>
+            <label class="screen-reader-text" for="github-sync-from"><?php esc_html_e('From date', 'github-sync'); ?></label>
+            <input type="date" name="from" id="github-sync-from" value="<?php echo esc_attr((string) $filters['from']); ?>"
+                max="<?php echo esc_attr(wp_date('Y-m-d')); ?>">
+
+            <span class="github-sync-date-range__to"><?php esc_html_e('to', 'github-sync'); ?></span>
+
+            <label class="screen-reader-text" for="github-sync-to"><?php esc_html_e('To date', 'github-sync'); ?></label>
+            <input type="date" name="to" id="github-sync-to" value="<?php echo esc_attr((string) $filters['to']); ?>"
+                max="<?php echo esc_attr(wp_date('Y-m-d')); ?>">
+        </span>
+
         <label class="screen-reader-text" for="github-sync-search"><?php esc_html_e('Search', 'github-sync'); ?></label>
         <input type="search" name="s" id="github-sync-search" value="<?php echo esc_attr((string) $filters['search']); ?>"
             placeholder="<?php esc_attr_e('Search messages', 'github-sync'); ?>">
 
         <?php submit_button(__('Filter', 'github-sync'), 'secondary', '', false); ?>
+
+        <?php
+        $has_filters = $filters['level'] !== ''
+            || $filters['mapping_id'] > 0
+            || $filters['run_id'] > 0
+            || $filters['search'] !== ''
+            || $filters['when'] !== '';
+        ?>
+        <?php if ($has_filters) : ?>
+            <a class="github-sync-filter-reset" href="<?php echo esc_url(admin_url('admin.php?page=' . \GithubSync\Admin\Dashboard::PAGE_LOGS)); ?>">
+                <?php esc_html_e('Reset filters', 'github-sync'); ?>
+            </a>
+        <?php endif; ?>
     </form>
 
     <table class="wp-list-table widefat fixed striped github-sync-logs">

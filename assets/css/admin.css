@@ -666,6 +666,26 @@
     box-shadow: var(--gs-shadow);
 }
 
+.github-sync-date-range {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.github-sync-date-range input[type="date"] {
+    border-radius: 4px;
+}
+
+.github-sync-date-range__to {
+    color: var(--gs-muted);
+    font-size: 12.5px;
+}
+
+.github-sync-filter-reset {
+    margin-left: auto;
+    font-size: 12.5px;
+}
+
 .github-sync-logs {
     border-radius: var(--gs-radius);
     overflow: hidden;

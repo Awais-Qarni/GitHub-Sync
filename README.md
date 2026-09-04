@@ -81,7 +81,7 @@ Deletions are opt in. Unless **Also remove files that were deleted on the other 
 - A mapping must point inside the plugins folder, the themes folder, or a subfolder of `wp-content`. The plugin refuses to write into its own folder or its backup folder.
 - Pushes never force-update a branch, so a branch that moved on GitHub reports an error instead of overwriting someone's work.
 - A repository's own `.git` folder is never synced in either direction.
-- Backups are kept in `wp-content/uploads/github-sync/backups` for 14 days.
+- The pull backup holds only the files that pull was about to overwrite or delete, not the whole folder, and exists so a failed write can be rolled back automatically. Pushes create none, since the repository history serves the same purpose. Archives live in `wp-content/uploads/github-sync/backups` for 14 days, and restoring one by hand means unzipping it over the destination folder.
 
 ## License
 

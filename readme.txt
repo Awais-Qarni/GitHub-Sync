@@ -64,9 +64,19 @@ The sync is split into steps of a few files each. The browser drives the steps a
 
 No. A mapping must point at a folder inside the themes folder, the plugins folder, or a subfolder of wp-content. The plugin also refuses to write into its own folder or into its backup folder.
 
-= Where are the backups? =
+= What exactly is backed up? =
 
-In `wp-content/uploads/github-sync/backups`, protected from direct web access. They are pruned automatically after 14 days.
+Only the files a pull is about to overwrite or delete, zipped before anything in your live folder is touched. It is not a site backup and it is not a copy of the whole folder. Its purpose is automatic rollback: if writing the new files fails part way through, the old ones are put straight back, so you never end up with a half-updated folder.
+
+Pushing never creates a backup, because the repository history already holds every earlier version.
+
+Backups need the ZipArchive PHP extension. If your host does not have it, pulls still run, and the Logs screen records that no backup was taken.
+
+= Where are the backups, and how do I restore one by hand? =
+
+In `wp-content/uploads/github-sync/backups`, protected from direct web access, and pruned automatically after 14 days.
+
+There is no restore button in the admin: automatic rollback is the only thing that reads these archives. To recover an older file yourself, download the archive over FTP and unzip it over the destination folder. The paths inside the archive are relative to that folder.
 
 = What does the Pause button do? =
 
@@ -86,7 +96,7 @@ You can, and nothing breaks: the sync simply stops where it is. Files already wr
 * Removed automatic deployment: the webhook endpoint, the signature validator, the background jobs and the bundled Action Scheduler library are gone.
 * Pull and push now run in bounded steps with a progress bar, so large repositories sync reliably.
 * Added a commit message dialog for pushes, plus a default message and commit author in Settings.
-* Added the Logs screen, with level and mapping filters, and readable per-entry details instead of raw JSON.
+* Added the Logs screen, with filters for level, mapping and time, and readable per-entry details instead of raw JSON.
 * Ignore rules now belong to the mapping. The Add Mapping screen pre-fills suggestions you can edit or delete, and a mapping's rules, direction and deletion policy can be changed afterwards from its Settings dialog.
 * Rebuilt the admin screens: mapping cards with a repository to destination view, live progress, a destination path preview, and dialogs for pushing and editing.
 * Added connection testing, personal access token support, and clearer GitHub setup instructions.

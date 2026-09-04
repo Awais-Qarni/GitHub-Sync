@@ -113,6 +113,17 @@ class Log {
             $params[] = '%' . $wpdb->esc_like((string) $args['search']) . '%';
         }
 
+        // Both bounds are GMT, matching how created_at is stored.
+        if (!empty($args['date_from'])) {
+            $where[] = 'created_at >= %s';
+            $params[] = (string) $args['date_from'];
+        }
+
+        if (!empty($args['date_to'])) {
+            $where[] = 'created_at <= %s';
+            $params[] = (string) $args['date_to'];
+        }
+
         $where_sql = implode(' AND ', $where);
 
         $count_sql = "SELECT COUNT(*) FROM $table WHERE $where_sql";

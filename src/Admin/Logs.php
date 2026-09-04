@@ -23,11 +23,18 @@ class Logs {
 
         $this->maybe_clear();
 
+        $range = $this->requested_range();
+
         $filters = [
             'level'      => $this->requested_level(),
             'mapping_id' => isset($_GET['mapping_id']) ? absint($_GET['mapping_id']) : 0,
             'run_id'     => isset($_GET['run_id']) ? absint($_GET['run_id']) : 0,
             'search'     => isset($_GET['s']) ? sanitize_text_field(wp_unslash($_GET['s'])) : '',
+            'when'       => $range['when'],
+            'from'       => $range['from'],
+            'to'         => $range['to'],
+            'date_from'  => $range['date_from'],
+            'date_to'    => $range['date_to'],
             'page'       => isset($_GET['paged']) ? max(1, absint($_GET['paged'])) : 1,
             'per_page'   => 30,
         ];
@@ -152,6 +159,61 @@ class Logs {
     /**
      * The level filter, restricted to the levels the plugin writes.
      */
+    /**
+     * The time window to show, from the "When" filter.
+     *
+     * Presets are rolling windows counted back from now, so they need no
+     * timezone maths. A custom range is entered as local dates and converted to
+     * the GMT bounds the log table stores.
+     *
+     * @return array{when: string, from: string, to: string, date_from: string, date_to: string}
+     */
+    private function requested_range(): array {
+        $when = isset($_GET['when']) ? sanitize_text_field(wp_unslash($_GET['when'])) : '';
+        $windows = [
+            '24h' => DAY_IN_SECONDS,
+            '7d'  => 7 * DAY_IN_SECONDS,
+            '30d' => 30 * DAY_IN_SECONDS,
+        ];
+
+        $empty = ['when' => '', 'from' => '', 'to' => '', 'date_from' => '', 'date_to' => ''];
+
+        if (isset($windows[$when])) {
+            return array_merge($empty, [
+                'when'      => $when,
+                'date_from' => gmdate('Y-m-d H:i:s', time() - $windows[$when]),
+            ]);
+        }
+
+        if ($when !== 'custom') {
+            return $empty;
+        }
+
+        $from = $this->requested_date('from');
+        $to = $this->requested_date('to');
+
+        if ($from !== '' && $to !== '' && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [
+            'when'      => 'custom',
+            'from'      => $from,
+            'to'        => $to,
+            'date_from' => $from === '' ? '' : get_gmt_from_date($from . ' 00:00:00'),
+            'date_to'   => $to === '' ? '' : get_gmt_from_date($to . ' 23:59:59'),
+        ];
+    }
+
+    /**
+     * One date from the query string, only if it really is a date.
+     */
+    private function requested_date(string $key): string {
+        $value = isset($_GET[$key]) ? sanitize_text_field(wp_unslash($_GET[$key])) : '';
+
+        return preg_match('/^\d{4}-\d{2}-\d{2}$/', $value) ? $value : '';
+    }
+
     private function requested_level(): string {
         $level = isset($_GET['level']) ? sanitize_text_field(wp_unslash($_GET['level'])) : '';
         $allowed = [Log::LEVEL_INFO, Log::LEVEL_WARNING, Log::LEVEL_ERROR];
