@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<ruleset name="GitHub Sync Rules">
+    <description>Coding standards for GitHub Sync plugin.</description>
+    <file>./src</file>
+    <file>./templates</file>
+    <file>./github-sync.php</file>
+    <file>./uninstall.php</file>
+    
+    <arg value="sp"/>
+    <arg name="colors"/>
+
+    <rule ref="WordPress-Core"/>
+    <rule ref="WordPress-Docs"/>
+    <rule ref="WordPress-Extra"/>
+</ruleset>
