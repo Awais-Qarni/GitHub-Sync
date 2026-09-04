@@ -13,7 +13,7 @@ Manual two-way syncing between a GitHub repository folder and a WordPress folder
 
 GitHub Sync links one folder in a GitHub branch to one folder on your site. Nothing happens on its own: you press **Pull** to bring GitHub changes into WordPress, or **Push** to send your WordPress changes back to GitHub with a commit message you write yourself.
 
-### Features
+= Features =
 
 * **Manual pull and push.** Every sync is started by you, from the Mappings screen.
 * **Your own commit messages.** Pushing opens a dialog where you describe the change before it is committed.
@@ -27,8 +27,8 @@ GitHub Sync links one folder in a GitHub branch to one folder on your site. Noth
 
 1. Upload the `github-sync` folder to `wp-content/plugins/`.
 2. Activate the plugin on the Plugins screen.
-3. Open **GitHub Sync &rarr; Settings** and connect your GitHub account.
-4. Open **GitHub Sync &rarr; Add Mapping** to link a repository folder to a folder on your site.
+3. Open **GitHub Sync → Settings** and connect your GitHub account.
+4. Open **GitHub Sync → Add Mapping** to link a repository folder to a folder on your site.
 
 There is nothing to build and no Composer step.
 
@@ -36,13 +36,13 @@ There is nothing to build and no Composer step.
 
 **Personal access token (quickest)**
 
-1. In GitHub, open Settings &rarr; Developer settings &rarr; Personal access tokens &rarr; Fine-grained tokens.
+1. In GitHub, open Settings → Developer settings → Personal access tokens → Fine-grained tokens.
 2. Generate a token for the repositories you want to sync, with **Contents: Read and write**.
 3. Paste it into the plugin Settings screen and press **Test connection**.
 
 **GitHub App (better for teams)**
 
-1. In GitHub, open Settings &rarr; Developer settings &rarr; GitHub Apps &rarr; New GitHub App.
+1. In GitHub, open Settings → Developer settings → GitHub Apps → New GitHub App.
 2. Untick **Active** under Webhook. This plugin never receives webhooks.
 3. Under Repository permissions, set **Contents** to **Read and write**.
 4. Create the app, copy the App ID, generate a private key, and install the app on your repositories.
