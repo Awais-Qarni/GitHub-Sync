@@ -186,6 +186,7 @@ class Dashboard {
             'resumeHint'      => __('Show the Pull and Push buttons again for this mapping.', 'github-sync'),
             'deleteHint'      => __('Forget this mapping. Files already on your site and in GitHub are left alone.', 'github-sync'),
             'settingsSaved'   => __('Mapping settings saved.', 'github-sync'),
+            'manyUnfinished'  => __('More than one sync was left unfinished. Open the mapping you want and start it again; the others are released on their own after a few minutes.', 'github-sync'),
             'added'           => __('added', 'github-sync'),
             'updated'         => __('updated', 'github-sync'),
             'deleted'         => __('deleted', 'github-sync'),

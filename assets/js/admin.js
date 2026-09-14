@@ -152,8 +152,12 @@
 
         var state = {
             mappings: [],
-            activeRun: null,
-            cancelRequested: false
+            // Run this page is driving, per mapping id. One shared slot used to
+            // mean a second sync could take over the progress row and the
+            // Cancel button of the first one.
+            runs: {},
+            cancelRequested: {},
+            resumed: false
         };
 
         var commitModal = document.getElementById('github-sync-commit-modal');
@@ -288,11 +292,36 @@
                 + state.mappings.map(mappingCard).join('')
                 + '</div><div class="github-sync-messages"></div>';
 
-            state.mappings.forEach(function (mapping) {
-                if (mapping.active_run) {
-                    runSteps(mapping, mapping.active_run);
-                }
+            // A redraw builds fresh buttons, so the rows this page is already
+            // syncing have to be put back into their syncing state.
+            Object.keys(state.runs).forEach(function (mappingId) {
+                setButtonsDisabled(mappingId, true);
+                showProgress(mappingId, state.runs[mappingId]);
             });
+
+            // Picking a sync back up is for the tab that was driving it, so it
+            // happens once, on the first load, and only when a single run was
+            // left unfinished. Doing it on every redraw meant that finishing
+            // one sync quietly started the others, syncing folders nobody had
+            // asked for.
+            if (state.resumed) {
+                return;
+            }
+
+            state.resumed = true;
+
+            var unfinished = state.mappings.filter(function (mapping) {
+                return !!mapping.active_run;
+            });
+
+            if (unfinished.length === 1) {
+                runSteps(unfinished[0], unfinished[0].active_run);
+                return;
+            }
+
+            if (unfinished.length > 1) {
+                notice(messages(), 'info', t('manyUnfinished'));
+            }
         }
 
         function load() {
@@ -367,7 +396,6 @@
         }
 
         function finishRun(mapping, run) {
-            state.activeRun = null;
             hideProgress(mapping.id);
             setButtonsDisabled(mapping.id, false);
 
@@ -398,8 +426,12 @@
         }
 
         function runSteps(mapping, run) {
-            state.activeRun = run;
-            state.cancelRequested = false;
+            if (!run || state.runs[mapping.id]) {
+                return Promise.resolve();
+            }
+
+            state.runs[mapping.id] = run;
+            delete state.cancelRequested[run.id];
             setButtonsDisabled(mapping.id, true);
             showProgress(mapping.id, run);
 
@@ -409,12 +441,13 @@
                     showProgress(mapping.id, update);
                 },
                 function () {
-                    return state.cancelRequested;
+                    return !!state.cancelRequested[run.id];
                 }
             ).then(function (final) {
+                delete state.runs[mapping.id];
                 finishRun(mapping, final);
             }).catch(function (error) {
-                state.activeRun = null;
+                delete state.runs[mapping.id];
                 hideProgress(mapping.id);
                 setButtonsDisabled(mapping.id, false);
                 notice(messages(), 'error', error.message);
@@ -423,6 +456,13 @@
         }
 
         function startSync(mapping, direction, message) {
+            // Buttons are disabled while a sync runs, but a redraw brings them
+            // back, so the request itself is refused here. Starting a second
+            // run would leave an unfinished row holding the mapping lock.
+            if (state.runs[mapping.id]) {
+                return Promise.resolve();
+            }
+
             return api('mappings/' + mapping.id + '/sync', 'POST', {
                 direction: direction,
                 message: message || ''
@@ -639,16 +679,20 @@
                     return;
                 }
 
+                var running = state.runs[mapping.id];
+
+                if (!running) {
+                    return;
+                }
+
                 // The step loop notices the flag and stops on its own, so the
                 // dialog is not torn down while a request is still in flight.
-                state.cancelRequested = true;
+                state.cancelRequested[running.id] = true;
                 button.disabled = true;
 
-                if (state.activeRun) {
-                    api('runs/' + state.activeRun.id + '/cancel', 'POST').catch(function (error) {
-                        notice(messages(), 'error', error.message);
-                    });
-                }
+                api('runs/' + running.id + '/cancel', 'POST').catch(function (error) {
+                    notice(messages(), 'error', error.message);
+                });
 
                 return;
             }
@@ -677,7 +721,7 @@
         });
 
         window.addEventListener('beforeunload', function (event) {
-            if (state.activeRun) {
+            if (Object.keys(state.runs).length) {
                 event.preventDefault();
                 event.returnValue = '';
             }
