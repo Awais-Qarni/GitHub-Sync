@@ -286,6 +286,7 @@ class Run {
             'percent'         => $this->percent(),
             'error'           => $this->error,
             'summary'         => $this->get('summary', []),
+            'notice'          => (string) $this->get('notice', ''),
             'created_at'      => Dates::format($this->created_at),
             'completed_at'    => Dates::format($this->completed_at),
             'is_running'      => $this->is_running(),

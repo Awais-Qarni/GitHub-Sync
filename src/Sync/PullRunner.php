@@ -98,6 +98,8 @@ class PullRunner extends AbstractRunner {
 
         $remote_files = $this->drop_unsafe_paths($remote_files);
 
+        $this->warn_about_repository_layout($remote_files);
+
         $builder = new ManifestBuilder($this->mapping, $dest_path, $this->max_file_bytes);
         $manifest = $builder->build($remote_files);
 
@@ -131,6 +133,7 @@ class PullRunner extends AbstractRunner {
         if (!$candidates && !$deletes) {
             $this->save_mapping_state($head);
             $this->run->total_items = 0;
+            $this->verify_destination();
             $this->complete(__('Already up to date. No files needed changing.', 'github-sync'));
             return;
         }
@@ -250,6 +253,7 @@ class PullRunner extends AbstractRunner {
 
         if ($change_count === 0 && $delete_count === 0) {
             $this->save_mapping_state((string) $this->run->commit_sha);
+            $this->verify_destination();
             $this->complete(__('Already up to date. Every file already matched the repository.', 'github-sync'));
             return;
         }
@@ -531,6 +535,8 @@ class PullRunner extends AbstractRunner {
 
         $summary = (array) $this->run->get('summary', []);
 
+        $this->verify_destination();
+
         $this->complete(
             sprintf(
                 /* translators: 1: files added, 2: files updated, 3: files deleted. */
@@ -662,6 +668,235 @@ class PullRunner extends AbstractRunner {
         $this->mapping->last_commit_sha = $commit_sha;
         $this->mapping->last_synced_at = Dates::now();
         $this->mapping->save();
+    }
+
+    /**
+     * Record a warning that the person who pressed Pull needs to read.
+     *
+     * A run that finishes without writing the folder WordPress expects is still
+     * reported as completed, so the reason is kept on the run as well as in the
+     * log and shown next to the result on the dashboard.
+     *
+     * @param array<string, mixed> $context
+     */
+    private function warn_run(string $message, array $context = []): void {
+        $this->log(Log::LEVEL_WARNING, $message, $context);
+
+        if ((string) $this->run->get('notice', '') === '') {
+            $this->run->set(['notice' => $message]);
+        }
+    }
+
+    /**
+     * Warn when the branch does not look like the thing this mapping installs,
+     * before a single file is written.
+     *
+     * WordPress only looks one folder deep for themes and plugins. A repository
+     * that keeps its theme in a subfolder therefore syncs perfectly, reports
+     * success, and still never appears under Appearance, because what landed in
+     * the themes folder is a folder of folders. Saying so here is a great deal
+     * cheaper than leaving the site owner to work it out from an empty screen.
+     *
+     * @param array<int, array{path: string, sha: string, size: int}> $remote_files
+     */
+    private function warn_about_repository_layout(array $remote_files): void {
+        $type = $this->mapping->dest_type;
+
+        if (($type !== 'theme' && $type !== 'plugin') || !$remote_files) {
+            return;
+        }
+
+        $root = [];
+        $nested = [];
+
+        foreach ($remote_files as $file) {
+            $parts = explode('/', (string) $file['path']);
+
+            if (count($parts) === 1) {
+                $root[] = $parts[0];
+                continue;
+            }
+
+            $folder = $parts[0];
+
+            if (!isset($nested[$folder])) {
+                $nested[$folder] = [];
+            }
+
+            if (count($parts) === 2) {
+                $nested[$folder][] = $parts[1];
+            }
+        }
+
+        if (self::looks_like_root($type, $root)) {
+            return;
+        }
+
+        $matches = [];
+
+        foreach ($nested as $folder => $names) {
+            if (self::looks_like_root($type, $names)) {
+                $matches[] = (string) $folder;
+            }
+        }
+
+        $prefix = $this->mapping->source_path === '' ? '' : $this->mapping->source_path . '/';
+
+        if (count($matches) === 1) {
+            $this->warn_run(
+                sprintf(
+                    $type === 'theme'
+                        /* translators: %s: folder path inside the repository. */
+                        ? __('This branch has no style.css at the top of the mapped folder, so WordPress will not list the result under Appearance. The theme looks like it lives in "%s" instead. Edit the mapping and set the repository folder to that path, then pull again.', 'github-sync')
+                        /* translators: %s: folder path inside the repository. */
+                        : __('This branch has no PHP file at the top of the mapped folder, so WordPress will not list the result on the Plugins screen. The plugin looks like it lives in "%s" instead. Edit the mapping and set the repository folder to that path, then pull again.', 'github-sync'),
+                    $prefix . $matches[0]
+                ),
+                ['repository_folder' => $prefix . $matches[0]]
+            );
+
+            return;
+        }
+
+        $this->warn_run(
+            $type === 'theme'
+                ? __('This branch has no style.css at the top of the mapped folder. The files will be synced, but WordPress will not list them under Appearance until the mapped folder is the one holding style.css.', 'github-sync')
+                : __('This branch has no PHP file at the top of the mapped folder. The files will be synced, but WordPress will not list them on the Plugins screen until the mapped folder is the one holding the main plugin file.', 'github-sync'),
+            $matches ? ['candidate_folders' => array_slice($matches, 0, 20)] : []
+        );
+    }
+
+    /**
+     * Whether a listing of names, taken from one folder, is the root of a theme
+     * or of a plugin. Only the file names are known here, so this is the same
+     * shallow test WordPress itself starts from.
+     *
+     * @param string[] $names
+     */
+    private static function looks_like_root(string $type, array $names): bool {
+        foreach ($names as $name) {
+            $name = strtolower((string) $name);
+
+            if ($type === 'theme' && $name === 'style.css') {
+                return true;
+            }
+
+            if ($type === 'plugin' && substr($name, -4) === '.php') {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * After a pull, check that WordPress will really recognise what is now on
+     * disk, and say what is missing when it will not.
+     *
+     * A pull that writes every file correctly is still a failure from the site
+     * owner's point of view if the Themes screen stays empty afterwards, so the
+     * run records the reason rather than only reporting success.
+     */
+    private function verify_destination(): void {
+        $type = $this->mapping->dest_type;
+
+        if ($type !== 'theme' && $type !== 'plugin') {
+            return;
+        }
+
+        $dest_path = $this->destination_path();
+
+        if (is_wp_error($dest_path) || !is_dir($dest_path)) {
+            return;
+        }
+
+        if (self::has_header($dest_path, $type)) {
+            return;
+        }
+
+        $nested = self::find_header_below($dest_path, $type);
+
+        if ($nested !== null) {
+            $this->warn_run(
+                sprintf(
+                    $type === 'theme'
+                        /* translators: 1: destination folder, 2: subfolder name. */
+                        ? __('The files were written to %1$s, but WordPress will not list a theme there: the theme itself is one level down, in the "%2$s" subfolder. Set the repository folder on this mapping to the folder that holds style.css, or point the mapping at wp-content/themes/%2$s.', 'github-sync')
+                        /* translators: 1: destination folder, 2: subfolder name. */
+                        : __('The files were written to %1$s, but WordPress will not list a plugin there: the plugin itself is one level down, in the "%2$s" subfolder. Set the repository folder on this mapping to the folder that holds the main plugin file, or point the mapping at wp-content/plugins/%2$s.', 'github-sync'),
+                    $dest_path,
+                    $nested
+                ),
+                ['destination' => $dest_path, 'found_in' => $nested]
+            );
+
+            return;
+        }
+
+        $this->warn_run(
+            sprintf(
+                $type === 'theme'
+                    /* translators: %s: destination folder. */
+                    ? __('The files were written to %s, but it holds no style.css with a "Theme Name:" header, so WordPress will not list it under Appearance.', 'github-sync')
+                    /* translators: %s: destination folder. */
+                    : __('The files were written to %s, but it holds no PHP file with a "Plugin Name:" header, so WordPress will not list it on the Plugins screen.', 'github-sync'),
+                $dest_path
+            ),
+            ['destination' => $dest_path]
+        );
+    }
+
+    /**
+     * True when a folder holds the header file WordPress looks for.
+     */
+    private static function has_header(string $dir, string $type): bool {
+        if ($type === 'theme') {
+            return self::file_declares($dir . '/style.css', 'Theme Name');
+        }
+
+        foreach (glob($dir . '/*.php') ?: [] as $file) {
+            if (self::file_declares($file, 'Plugin Name')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The first immediate subfolder that holds the header file, if any.
+     */
+    private static function find_header_below(string $dir, string $type): ?string {
+        foreach (glob($dir . '/*', GLOB_ONLYDIR) ?: [] as $child) {
+            if (self::has_header($child, $type)) {
+                return basename($child);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Look for a file header field the way WordPress reads one: in the first
+     * 8 KB, tolerant of the comment characters around it.
+     */
+    private static function file_declares(string $file, string $field): bool {
+        if (!is_file($file)) {
+            return false;
+        }
+
+        $handle = @fopen($file, 'r');
+
+        if (!$handle) {
+            return false;
+        }
+
+        $head = (string) fread($handle, 8192);
+        fclose($handle);
+
+        $head = str_replace("\r", "\n", $head);
+
+        return (bool) preg_match('/^[ \t\/*#@]*' . preg_quote($field, '/') . ':/mi', $head);
     }
 
     /**

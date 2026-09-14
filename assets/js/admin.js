@@ -377,6 +377,14 @@
             if (run && run.status === 'completed') {
                 type = 'success';
                 text = t('completed') + ': ' + summaryText(run);
+
+                // A pull can write every file and still leave WordPress with
+                // nothing to show, so that reason is raised here rather than
+                // being left in the log for someone to find.
+                if (run.notice) {
+                    type = 'warning';
+                    text += ' — ' + run.notice;
+                }
             } else if (run && run.status === 'failed') {
                 type = 'error';
                 text = run.error || t('genericError');
